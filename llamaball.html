@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width; initial-scale=1.0" />
+<title>Llama Ball!</title>
+<style type="text/css">
+/* screen */
+html,body{margin:0;padding:0;}
+body {background:#000}
+#wrap {width:800px;height:600px;margin:150px auto 0}
+#gameboard {position:absolute;width:800px;height:600px;}
+#gameboard.reset {background:#101c41 no-repeat center center url(lib/img/bg.png)}
+#gameboard.off {background:#1C1C1C no-repeat center center url(lib/img/bg.off.png)}
+#gameboard.bonus {background:#082c01 no-repeat center center url(lib/img/bg.bonus.png)}
+#gameboard.hazard {background:#251c01 no-repeat center center url(lib/img/bg.hazard.png)}
+#gameboard.evil {background:#3a1109 no-repeat center center url(lib/img/bg.evil.png)}
+
+#scoreboard{width:778px;position:absolute;top:-60px;background:repeat-x url(lib/img/scoreboard.png);padding:8px;text-align:center;
+  border:3px solid #055bc0;border-top:none;z-index:2}
+  
+button{background:#101C41;padding:5px 20px;margin:auto;border:none;font:bold 25px/1 arial,sans;color:#fff;float:left}
+h5{position:absolute;top:20%;text-align:center;width:100%;font:bold 35px/1.3 arial, verdana, sans-serif;letter-spacing:-.04em;
+  text-transform:uppercase;color:#fff}
+h6{font:bold 25px/1.3 arial, verdana, sans-serif;letter-spacing:-.04em;margin:4px 8px;float:left;display:inline;color:#101C41}
+h6 span, h6 em{color:#fff}
+
+/* balls */
+div.ball {position:absolute;width:90px;height:90px;z-index:1;background: no-repeat url(lib/img/llama.png);cursor:crosshair}
+div.die {background-image: url(lib/img/llama.die.png)}
+div.off {background-image: url(lib/img/llama.off.png)}
+div.bonus {background: no-repeat url(lib/img/llama.bonus.png)}
+div.hazard {background: no-repeat url(lib/img/llama.hazard.png)}
+div.evil {background: no-repeat url(lib/img/llama.evil.png)}
+.on{z-index:2}
+</style>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script> 
+<script type="text/javascript">
+// jQuery Easing v1.3 - http://gsgd.co.uk/sandbox/jquery/easing/
+jQuery.easing['jswing'] = jQuery.easing['swing'];
+jQuery.extend(jQuery.easing, {
+  def: 'easeOutSine',
+  swing: function (x, t, b, c, d) {
+    return jQuery.easing[jQuery.easing.def](x, t, b, c, d);
+  },
+  easeOutSine: function (x, t, b, c, d) {
+    return c * Math.sin(t / d * (Math.PI / 2)) + b;
+  },
+  easeOutBounce: function (x, t, b, c, d) {
+    if ((t /= d) < (1 / 2.75)) {
+      return c * (7.5625 * t * t) + b;
+    } else if (t < (2 / 2.75)) {
+      return c * (7.5625 * (t -= (1.5 / 2.75)) * t + .75) + b;
+    } else if (t < (2.5 / 2.75)) {
+      return c * (7.5625 * (t -= (2.25 / 2.75)) * t + .9375) + b;
+    } else {
+      return c * (7.5625 * (t -= (2.625 / 2.75)) * t + .984375) + b;
+    }
+  }
+});
+
+/*
+ * jQuery LlamaBall V1.2
+ * Llamas and Balls = Llama Ball
+ * Author: Nathan Blenke
+ * Date: 20101021
+ * License: http://creativecommons.org/licenses/by-nc-sa/3.0/
+ *
+ * REQUIRES:
+ * jQuery Easing v1.3
+ *
+ * EXAMPLE OF USE:
+ *  $("body").LlamaBall();
+ * 
+ */
+
+(function($) {
+
+  $.fn.LlamaBall = function(stg) {
+    var cfg = {
+      oT: $(this),
+      oB: $('body'),
+      oW: $('<div id="wrap"></div>'),
+      oGB: $('<div id="gameboard"></div>'),
+      oSB: $('<div id="scoreboard"></div>'),
+      milisec:0,
+      seconds:60, // game time
+      secondsReset:60,
+      phase2Start:40, // time when difficulty increases to phase2
+      phase3Start:20, //                                   phase3
+      spd:2000,
+      spdAlt:1000,
+      phase1Spd:2800, // speed of balls in phase1
+      phase1SpdAlt:1400,
+      phase2Spd:2700, // speed of balls in phase2
+      phase2SpdAlt:1300,
+      phase3Spd:2500, // speed of balls in phase3
+      phase3SpdAlt:1000,
+      //finalScore : $('h4 span').text(),
+      ballTotal:1,
+      ballCount:1,
+      scoreReset:0,
+      defaultScore:100, // add this number for default 
+      bonusScore:300, // add this number for bonus 
+      hazardScore:200, // subtract this number for hazard 
+      evilScore:300, // subtract this number for evil 
+      i:0,
+      a:'swing',
+      lvl:1
+    };
+    if (stg) $.extend(cfg, stg);
+
+      /*
+      ball functions
+      */
+      $.ball = function() {
+        var i = 0,
+            arr,
+            o;
+
+        if (cfg.lvl===1) {
+          arr = [1,2,3,4,5,8];
+          cfg.spd = cfg.phase1Spd;
+          cfg.spdAlt = cfg.phase1SpdAlt;
+        }
+        if (cfg.lvl===2) {
+          arr = [1,2,3,4,5,6,8];
+          cfg.spd = cfg.phase2Spd;
+          cfg.spdAlt = cfg.phase2SpdAlt;
+        }
+        if (cfg.lvl===3) {
+          arr = [1,2,3,4,5,6,7];
+          cfg.spd = cfg.phase3Spd;
+          cfg.spdAlt = cfg.phase3SpdAlt;
+        }
+          
+        var c = {
+          rand : function() {
+            return arr[Math.floor(Math.random()*arr.length)];
+          },
+          setBallType : function(type,o) {
+            if(type===1){
+              o.addClass('bonus');
+            }
+            if(type===2){
+              o.addClass('hazard');
+            }
+            if(type===3){
+              o.addClass('evil');
+            }
+          },
+          // animations
+          // fade to center
+          end : function(obj) {
+            obj.animate({ left:'290px',top:'210px',opacity:'0'},{duration: cfg.spd, easing: 'easeOutSine'});
+            obj.fadeOut("fast", function() { $(this).remove() });//cleanup
+            $('.ball:gt(20)').remove(); // too many balls
+          },
+          // all sides
+          a1 : function(type) {
+            o = $('<div class="ball on" style="top:0px;left:710px"></div>');
+            cfg.oGB.prepend(o);
+            c.setBallType(type,o);
+            while (i<=1) {
+              o.animate({ left:'350px',top:'510px'},{duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'0',top:'300px'},    {duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'350px',top:'0'},    {duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'710px',top:'300px'},{duration: cfg.spd, easing: cfg.a});
+              i++;
+            }
+            c.end(o);
+          },
+          // up and down
+          a2 : function(type) {
+            o = $('<div class="ball on" style="top:0;left:0"></div>');
+            cfg.oGB.prepend(o);
+            c.setBallType(type,o);
+            while (i<=1) {
+              o.animate({ left:'200px',top:'510px'},{duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'400px',top:'0'},    {duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'500px',top:'510px'},{duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'600px',top:'0'},    {duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'700px',top:'20px'} ,{duration: cfg.spdAlt, easing: cfg.a});
+              i++;
+            }
+            c.end(o);
+          },
+          // side to side
+          a3 : function(type) {
+            o = $('<div class="ball on" style="top:510px;left:0"></div>');
+            cfg.oGB.prepend(o);
+            c.setBallType(type,o);
+            while (i<=1) {
+              o.animate({ left:'710px',top:'400px'},{duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'0',  top:'300px'},  {duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'710px',top:'100px'},{duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'0',  top:'30px'},   {duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'610px',top:'0'},    {duration: cfg.spd, easing: cfg.a});
+              o.animate({ left:'710px',top:'10px'}, {duration: cfg.spdAlt, easing: cfg.a});
+              o.animate({ left:'0',top:'510px'},    {duration: cfg.spd, easing: cfg.a});
+              i++;
+            }
+            c.end(o);
+          },
+          //assign animation to random number
+          go : function() {
+            switch (c.rand()) {
+              // normal
+              case 1: c.a1(); break;
+              case 2: c.a2(); break;
+              case 3: c.a3(); break;
+              // hazard
+              case 4: c.a1(2); break;
+              case 5: c.a2(2); break;
+              // evil
+              case 6: c.a2(3); break;
+              case 7: c.a3(3); break;
+              // bonus
+              case 8: c.a1(1); break;
+            }  
+          }
+        }
+      
+        c.go();
+      };
+      
+      /*
+      change bg class for a sec
+      */
+      $.changeBG = function(obj) {
+        cfg.oGB.addClass(obj);
+        setTimeout(function(){
+          cfg.oGB.removeClass(obj);
+        },500);
+      }
+      
+      /*
+      score
+      */
+      $.keepScore = function(scoreType) {
+        var oS = $('h6#score span');
+
+        switch (scoreType) {
+          case 'default': 
+            oS.text(cfg.scoreReset+=cfg.defaultScore);
+            $.notify('score','+'+cfg.defaultScore+'');
+          break;
+          case 'bonus':   
+            oS.text(cfg.scoreReset+=cfg.bonusScore);
+            $.notify('score','+'+cfg.bonusScore+'');
+          break;
+          case 'hazard':  
+            oS.text(cfg.scoreReset-=cfg.hazardScore);
+            $.notify('score','-'+cfg.hazardScore+'');
+          break;
+          case 'evil':    
+            oS.text(cfg.scoreReset-=cfg.evilScore);
+            $.notify('score','-'+cfg.evilScore+'');
+          break;
+        }  
+      }
+      
+      /*
+      evil ball
+      */
+      $.evilFunc = function() {
+        $.changeBG('evil');
+      }
+
+      /*
+      hazard ball
+      */
+      $.hazardFunc = function() {
+        $.changeBG('hazard');
+      }
+      
+      /*
+      bonus ball
+      */
+      $.bonusFunc = function() {
+        $.changeBG('bonus');
+      }
+      
+      
+      /*
+      build the game
+      */
+      $.buildGame = function() {
+        cfg.oB.prepend(cfg.oW);
+        cfg.oW.prepend(cfg.oGB);
+        cfg.oGB.prepend(cfg.oSB);
+        cfg.oSB.prepend('<h6 id="time"><strong>Time:</strong> <span>'+cfg.seconds+'</span> <em>Seconds</em></h6>');
+        cfg.oSB.prepend('<h6 id="hit"><strong>Hit:</strong> <span>'+cfg.ballCount+'</span></h6>');
+        cfg.oSB.prepend('<h6 id="count"><strong>Balls:</strong> <span>0</span></h6>');
+        cfg.oSB.prepend('<h6 id="score"><strong>Score:</strong> <span>0</span></h6>');
+        cfg.oSB.prepend('<button id="start">Play!</button>');
+        cfg.oSB.prepend('<button id="more">More Balls!</button>');
+        cfg.oSB.prepend('<button id="reset">Play Again!</button>');
+      }
+        
+      /*
+      countdown
+      */
+      $.counter = function() {
+        if (cfg.milisec<=0){ 
+          cfg.milisec=9;
+          cfg.seconds-=1; 
+        }
+        if (cfg.seconds<=-1){ 
+          cfg.milisec=0;
+          cfg.seconds+=1; 
+        } else {
+          cfg.milisec-=1;
+          $('h6#time span').text(cfg.seconds+"."+cfg.milisec )
+          setTimeout("$.counter()",100);
+        }
+        //increase difficulty to phase2
+        if (cfg.seconds===cfg.phase2Start){
+          cfg.lvl=2;
+          $.notify();
+        }
+        //increase difficulty to phase3
+        if (cfg.seconds===cfg.phase3Start){
+          cfg.lvl=3;
+          $.notify();
+        }
+        //end game
+        if ($('h6#time span').html()==='0.0'){
+          $.endGame();
+          $.notify('over');
+        }
+      }
+      
+      /*
+      add to ball amount
+      */
+      $.ballsAmt = function() {
+        $('h6#count span').text(cfg.ballTotal++);
+      }
+
+      /*
+      end the game
+      */
+      $.endGame = function() {
+        cfg.oGB.addClass('off');
+        clearInterval (newBalls);
+        //$('h3').text('Times Up!');
+        $('.ball')
+          .removeClass('on')
+          .removeClass('hazard')
+          .removeClass('evil')
+          .removeClass('bonus')
+          .addClass('off');
+        $('button').hide();
+        $('#reset').show();
+      }
+      
+      /*
+      start the game
+      */
+      $.startGame = function() {
+        $('#start').hide();
+        $('#more').show();
+        $.counter();
+        newBalls = setInterval ( "$.ball();$.ballsAmt()", 3000 ); // two balls every 3 sec
+      }
+      
+      /*
+      reset the game
+      */
+      $.resetGame = function() {
+        cfg.oGB.find('.ball').remove(); // cleanup
+        cfg.oGB.addClass('reset');
+        cfg.oGB.removeClass('off');
+        cfg.ballTotal = 1;
+        cfg.ballCount = 1;
+        cfg.seconds = cfg.secondsReset;
+        cfg.lvl = 1;
+        cfg.scoreReset = 0;
+        $('h6#count span').text('0');
+        $('h6#score span').text('0');
+        $('h6#hit span').text('0');
+        $('button').hide();
+        $('.ball').hide();
+        $('#start').show();
+        $('h6#time span').html(cfg.secondsReset);
+      }
+      
+      /*
+      notify
+      */
+      $.notify = function(arg,score) {
+        if (arg==='over'){
+          cfg.oGB.prepend('<h5>Game Over!</h5>');
+          $('h5').fadeOut("slow", function() { $(this).remove() });
+        } else if (arg==='score'){
+          cfg.oGB.prepend('<h5>'+score+'</h5>');
+          $('h5').animate({ marginTop:'200px',opacity:'0'},{duration: 2000, easing: 'easeOutSine'});
+          $('h5').fadeOut("fast", function() { $(this).remove() });
+        } else {
+          cfg.oGB.prepend('<h5>'+cfg.seconds+' Seconds Remaining!</h5>');
+          $('h5').fadeOut("slow", function() { $(this).remove() });
+        }
+      }
+      
+
+    this.each(function() {
+        
+      $.buildGame();
+      $.resetGame();
+    
+      $('#start').click(function() {
+        $.startGame();
+      });
+    
+      $('#more').click(function() {
+        $.ball();
+        $.ballsAmt();
+      });
+    
+      $('#reset').click(function() {
+        $.resetGame();
+      });
+    
+      /*
+      click event / score
+      */
+      $('.on').live('click', function() {
+        var scoreType;
+        
+        if ($(this).hasClass('evil')) {
+          $.evilFunc();
+          scoreType = 'evil';
+        } else if ($(this).hasClass('hazard')) {
+          $.hazardFunc();
+          scoreType = 'hazard';
+        } else if ($(this).hasClass('bonus')) {
+          $.bonusFunc();
+          scoreType = 'bonus';
+        } else {
+          scoreType = 'default';
+        }
+        
+        // track score
+        $.keepScore(scoreType);
+        
+        // change ball appearance
+        $(this).stop().addClass('die');
+        $(this).removeClass('on bonus hazard evil');
+        
+        // add to ball count
+        $('h6#hit span').text(cfg.ballCount++);
+      });
+
+    });
+  
+    return this;
+   
+  };
+ 
+})(jQuery);
+
+/*
+ready
+*/
+jQuery(function($) {
+
+  $("body").LlamaBall();
+
+});
+
+
+</script>
+</head>
+<body>
+
+
+</body>
+
+</html>
